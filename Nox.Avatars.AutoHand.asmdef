@@ -1,0 +1,31 @@
+{
+  "name": "Nox.Avatars.AutoHand",
+  "rootNamespace": "",
+  "references": [
+    "Nox.CCK",
+    "Nox.Avatars",
+    "Nox.Avatars.Rigging",
+    "Nox.Avatars.Parameters",
+    "Nox.CCK.Avatars.Rigging",
+    "Nox.Avatars.Hand",
+    "Nox.CCK.Avatars.Hand",
+    "AutoHandAssembly"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [
+    "HAS_AUTOHAND"
+  ],
+  "versionDefines": [
+    {
+      "name": "com.earnestrobot.autohand",
+      "expression": "",
+      "define": "HAS_AUTOHAND"
+    }
+  ],
+  "noEngineReferences": false
+}
