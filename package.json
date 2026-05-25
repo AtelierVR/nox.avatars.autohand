@@ -1,5 +1,6 @@
-{
-  "name": "nox.avatars.autohand",
-  "displayName": "Nox - Avatar AutoHand Backend",
-  "version": "1.0.0"
+﻿{
+    "name":  "nox.avatars.autohand",
+    "displayName":  "Nox - Avatar AutoHand Backend",
+    "version":  "1.0.0",
+    "description":  "Registers the AutoHand physics-based hand interaction backend for avatar IK."
 }
