@@ -44,7 +44,7 @@ namespace Nox.Avatars.AutoHand {
 			// Finger bones are children of anchor (inactive hierarchy) – their Awakes are deferred too.
 			ah.fingers = new AFinger[ hand.Fingers.Length ];
 			for (var i = 0; i < hand.Fingers.Length; i++) {
-				ah.fingers[i]      = Convert(hand.Fingers[i]);
+				ah.fingers[i]      = Convert(hand, hand.Fingers[i]);
 				ah.fingers[i].hand = ah;
 			}
 
@@ -60,12 +60,13 @@ namespace Nox.Avatars.AutoHand {
 			return ah;
 		}
 
-		public static AFinger Convert(IFinger finger) {
+		public static AFinger Convert(IHand hand, IFinger finger) {
 			Exception fingerError = null;
 			if (finger == null || !finger.IsValid(out fingerError))
 				throw new ArgumentException("Invalid finger: " + fingerError!.Message, nameof(finger));
 
 			var af = finger.Proximal.GetOrAddComponent<AFinger>();
+
 			af.fingerType = finger.Type switch {
 				FingerType.Thumb  => FingerEnum.thumb,
 				FingerType.Index  => FingerEnum.index,
@@ -75,28 +76,47 @@ namespace Nox.Avatars.AutoHand {
 				_                 => throw new ArgumentOutOfRangeException(nameof(finger.Type), "Unknown finger type.")
 			};
 
+			af.knuckleJoint = finger.Proximal;
+			af.middleJoint  = finger.Intermediate;
+			af.distalJoint  = finger.Distal;
+			af.tip          = finger.Tip;
+
 			af.poseData = new FingerPoseData[ Enum.GetValues(typeof(FingerCurl)).Length - 1 ]; // without FingerCurl.TPose.
 			// Pre-fill every slot with non-null arrays: HandAnimator.Start() calls CopyFromData which
 			// does poseRelativeMatrix.CopyTo(...) – a null array there throws NullReferenceException.
 			for (var i = 0; i < af.poseData.Length; i++)
 				af.poseData[i] = new FingerPoseData { poseRelativeMatrix = new Matrix4x4[ 4 ], localRotations = new Quaternion[ 4 ] };
-			for (var i = 0; i < af.poseData.Length; i++) {
+
+			// Backup original local rotations so we don't mess up the runtime state
+			var origProximal = finger.Proximal.localRotation;
+			var origIntermediate = finger.Intermediate.localRotation;
+			var origDistal = finger.Distal.localRotation;
+			var origTip = finger.Tip.localRotation;
+
+			for (var i = 0; i < finger.Poses.Length; i++) {
 				var c = finger.Poses[i].Curl;
 				if (c == FingerCurl.TPose)
 					continue;
 
+				// Temporarily apply pose to joints to compute relative matrices accurately
+				var vals = finger.Poses[i].Values;
+				if (vals != null && vals.Length >= 4) {
+					finger.Proximal.localRotation = vals[0];
+					finger.Intermediate.localRotation = vals[1];
+					finger.Distal.localRotation   = vals[2];
+					finger.Tip.localRotation      = vals[3];
+				}
+
 				var ai = finger.Poses[i].Curl.ToAuto();
-				af.poseData[(int)ai] = new FingerPoseData {
-					poseRelativeMatrix = new Matrix4x4[ 4 ],
-					localRotations     = finger.Poses[i].Values
-				};
+				af.poseData[(int)ai] = new FingerPoseData(hand.Anchor, af.knuckleJoint, af.middleJoint, af.distalJoint, af.tip);
 			}
 
-			af.knuckleJoint = finger.Proximal;
-			af.middleJoint  = finger.Intermediate;
-			af.distalJoint  = finger.Distal;
+			// Restore original local rotations
+			finger.Proximal.localRotation = origProximal;
+			finger.Intermediate.localRotation = origIntermediate;
+			finger.Distal.localRotation   = origDistal;
+			finger.Tip.localRotation      = origTip;
 
-			af.tip       = finger.Tip;
 			af.tipRadius = finger.TipRadius;
 			if (af.tipRadius == 0f) {
 				af.tipRadius = 0.01f; // Default to a small radius to avoid issues with UI interaction.
