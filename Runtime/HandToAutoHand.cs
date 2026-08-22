@@ -53,9 +53,23 @@ namespace Nox.Avatars.AutoHand {
 			SetupColliders(hand);
 
 			// Restore active state – all deferred Awakes now fire with fields properly initialized.
-			anchorGo.transform.SetLayer("Hand", true); // Ensure the hand and all its children are on the correct layer for interaction. This can be overridden later if needed.
-
 			anchorGo.SetActive(wasActive);
+
+			// Force the correct Hand layer on the entire hierarchy AFTER Awake() has run.
+			// Hand.Awake() calls SetLayerRecursive itself, but only if the GameObject was already
+			// active when Convert() was called (wasActive == true).  When wasActive == false the
+			// hand stays inactive here, so we must set the layer explicitly so that all colliders
+			// added by SetupColliders() are on the "Hand" layer when the GameObject is later
+			// enabled — otherwise they stay on their avatar-skeleton layer and collide with
+			// nothing (or with the wrong things).
+			ah.SetLayerRecursive(
+				anchorGo.transform, 
+				LayerMask.NameToLayer(
+					ah.left 
+						? AHand.leftHandLayerName 
+						: AHand.rightHandLayerName
+				)
+			);
 
 			return ah;
 		}
