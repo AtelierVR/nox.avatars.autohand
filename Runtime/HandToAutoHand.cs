@@ -71,6 +71,12 @@ namespace Nox.Avatars.AutoHand {
 				)
 			);
 
+			// HandBase.Awake() a calculé la boîte d'encapsulation depuis les os, dans le repère
+			// local de la main d'avatar : sur une main de squelette humain (axes locaux et pose
+			// différents du prefab RobotHand) le résultat ne couvre pas les doigts. On la recale
+			// donc sur les colliders réels de la main, comme le fait le prefab RobotHand.
+			AlignEncapsulationBox(ah);
+
 			return ah;
 		}
 
@@ -217,18 +223,22 @@ namespace Nox.Avatars.AutoHand {
 		}
 
 		/// <summary>
-		/// Adds a CapsuleCollider to each phalanx bone and a SphereCollider at the finger tip.
+		/// Adds a CapsuleCollider to each phalanx bone.
 		/// Skips bones that already have a Collider component.
+		/// <para>
+		/// No SphereCollider is added at the finger tip (the « poke » spheres): the distal bone
+		/// capsule already covers the tip. Hands coming from an avatar bundle built with an older
+		/// version of this file may still carry one — it is disabled (not destroyed, so AutoHand's
+		/// cached references stay valid) instead of being left active.
+		/// </para>
 		/// </summary>
 		private static void SetupFingerColliders(IFinger finger) {
 			AddBoneCapsule(finger.Proximal, finger.Intermediate, finger.TipRadius);
 			AddBoneCapsule(finger.Intermediate, finger.Distal, finger.TipRadius);
 			AddBoneCapsule(finger.Distal, finger.Tip, finger.TipRadius);
 
-			if (finger.Tip != null && !finger.Tip.HasComponent<Collider>()) {
-				var sphere = finger.Tip.gameObject.AddComponent<SphereCollider>();
-				sphere.radius = Mathf.Max(finger.TipRadius, 0.005f);
-			}
+			if (finger.Tip != null && finger.Tip.TryGetComponent<Collider>(out var c))
+				c.enabled = false;
 		}
 
 		/// <summary>
@@ -237,8 +247,6 @@ namespace Nox.Avatars.AutoHand {
 		/// </summary>
 		private static void AddBoneCapsule(Transform from, Transform to, float tipRadius) {
 			if (from == null || to == null)
-				return;
-			if (from.HasComponent<Collider>())
 				return;
 
 			var   worldVec = to.position - from.position;
@@ -251,19 +259,77 @@ namespace Nox.Avatars.AutoHand {
 			var absDir   = new Vector3(Mathf.Abs(localDir.x), Mathf.Abs(localDir.y), Mathf.Abs(localDir.z));
 			int axis     = (absDir.x >= absDir.y && absDir.x >= absDir.z) ? 0 : (absDir.y >= absDir.z ? 1 : 2);
 
-			// Use tipRadius directly so all bone segments share the same cross-section as the finger tip.
-			float radius = Mathf.Max(tipRadius, 0.005f);
+			// Les capsules (comme les sphères de bout de doigt) sont déjà présentes quand la main
+			// vient d'un bundle d'avatar construit avec une version antérieure de ce fichier. On ne
+			// les recrée donc pas — mais on complète ce qui manque, sinon un simple
+			// `HasComponent<Collider>() && return` empêcherait tout ajout ultérieur (les box des
+			// phalanges du RobotHand, par exemple).
+			var cap = from.GetComponent<CapsuleCollider>();
+			if (cap == null) {
+				// Use tipRadius directly so all bone segments share the same cross-section as the finger tip.
+				float radius = Mathf.Max(tipRadius, 0.005f);
 
-			var cap = from.gameObject.AddComponent<CapsuleCollider>();
-			cap.direction = axis;
-			cap.radius    = radius;
-			// Shorten by one radius so the capsule's far-end pole stops at (to - radius),
-			// letting the adjacent sphere or next capsule's start hemisphere seamlessly meet it.
-			cap.height = Mathf.Max(length - radius, radius * 2f);
+				cap = from.gameObject.AddComponent<CapsuleCollider>();
+				cap.direction = axis;
+				cap.radius    = radius;
+				// Shorten by one radius so the capsule's far-end pole stops at (to - radius),
+				// letting the adjacent sphere or next capsule's start hemisphere seamlessly meet it.
+				cap.height = Mathf.Max(length - radius, radius * 2f);
 
-			var center = Vector3.zero;
-			center[axis] = cap.height * 0.5f * Mathf.Sign(localDir[axis]);
-			cap.center   = center;
+				var center = Vector3.zero;
+				center[axis] = cap.height * 0.5f * Mathf.Sign(localDir[axis]);
+				cap.center   = center;
+			}
+
+			// Les mains AutoHand livrées (cf. RobotHand.prefab) portent aussi un BoxCollider sur
+			// chaque phalange, à côté de la capsule. Il est livré désactivé — c'est la capsule qui
+			// collisionne — mais on reproduit le même montage pour que la main runtime soit
+			// identique au prefab (même jeu de colliders, mêmes taille/centre locaux).
+			if (!from.HasComponent<BoxCollider>()) {
+				var box = from.gameObject.AddComponent<BoxCollider>();
+				box.center  = cap.center;
+				box.size    = new Vector3(cap.radius * 2f, cap.radius * 2f, cap.radius * 2f) { [cap.direction] = cap.height };
+				box.enabled = false;
+			}
+		}
+
+		/// <summary>
+		/// Recale le <c>handEncapsulationBox</c> (boîte englobante que HandBase.Awake() crée et
+		/// utilise pour ses requêtes de grab / BoxCast) sur les colliders réels de la main,
+		/// exprimés dans son repère local — comme sur le prefab RobotHand.
+		/// <para>
+		/// À rappeler une fois la main réellement active : tant que la hiérarchie est inactive,
+		/// l'Awake() de HandBase n'a pas tourné et la boîte n'existe pas encore.
+		/// </para>
+		/// </summary>
+		public static void AlignEncapsulationBox(AHand hand) {
+			if (hand == null) return;
+
+			var boxGo = hand.transform.Find("handEncapsulationBox");
+			var box   = boxGo != null ? boxGo.GetComponent<BoxCollider>() : null;
+			if (box == null) return;
+
+			var local = new Bounds();
+			var any   = false;
+
+			foreach (var collider in hand.GetComponentsInChildren<Collider>(true)) {
+				// La boîte elle-même et les triggers (sphère de grab de la main, etc.) n'entrent
+				// pas dans l'encapsulation : seuls les colliders solides de la main comptent.
+				if (collider == box || collider.isTrigger || !collider.enabled) continue;
+
+				var center  = hand.transform.InverseTransformPoint(collider.bounds.center);
+				var extents = hand.transform.InverseTransformVector(collider.bounds.extents);
+				extents = new Vector3(Mathf.Abs(extents.x), Mathf.Abs(extents.y), Mathf.Abs(extents.z));
+
+				var bounds = new Bounds(center, extents * 2f);
+				if (!any) { local = bounds; any = true; }
+				else local.Encapsulate(bounds);
+			}
+
+			if (!any) return;
+
+			box.center = local.center;
+			box.size   = local.size;
 		}
 	}
 }
