@@ -1,0 +1,70 @@
+{
+  "type": "mod",
+  "id": "nox.avatars.autohand",
+  "name": "Avatar AutoHand Backend",
+  "version": "1.0.0",
+  "description": "Registers the AutoHand physics-based hand interaction backend for avatar IK.",
+  "license": "GPL-3.0",
+  "icon": null,
+  "contact": {
+    "email": "hactazia@gmail.com",
+    "source": "https://github.com/AtelierVR/nox.avatars.autohand",
+    "website": "https://nox.hactazia.fr/",
+    "issues": "https://github.com/AtelierVR/nox.avatars.autohand/issues"
+  },
+  "authors": [
+    {
+      "name": "Hactazia",
+      "email": "hactazia@gmail.com",
+      "website": "https://hactazia.fr/"
+    }
+  ],
+  "relations": [
+    {
+      "id": "nox.avatars.modules",
+      "type": "depends",
+      "version": ">=1.0.0",
+      "register": "git+https://github.com/AtelierVR/nox.avatars.modules.git"
+    },
+    {
+      "id": "com.earnestrobot.autohand",
+      "type": "depends",
+      "register": "git+https://github.com/AtelierVR/nox.autohand.git"
+    },
+    {
+      "id": "com.unity.modules.animation",
+      "type": "depends",
+      "register": "upm+com.unity.modules.animation@1.0.0"
+    },
+    {
+      "id": "com.unity.modules.audio",
+      "type": "depends",
+      "register": "upm+com.unity.modules.audio@1.0.0"
+    },
+    {
+      "id": "com.unity.modules.imgui",
+      "type": "depends",
+      "register": "upm+com.unity.modules.imgui@1.0.0"
+    },
+    {
+      "id": "com.unity.modules.particlesystem",
+      "type": "depends",
+      "register": "upm+com.unity.modules.particlesystem@1.0.0"
+    },
+    {
+      "id": "com.unity.modules.physics",
+      "type": "depends",
+      "register": "upm+com.unity.modules.physics@1.0.0"
+    },
+    {
+      "id": "com.unity.modules.ui",
+      "type": "depends",
+      "register": "upm+com.unity.modules.ui@1.0.0"
+    },
+    {
+      "id": "com.unity.modules.uielements",
+      "type": "depends",
+      "register": "upm+com.unity.modules.uielements@1.0.0"
+    }
+  ]
+}

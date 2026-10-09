@@ -2,12 +2,5 @@
     "name":  "nox.avatars.autohand",
     "displayName":  "Nox - Avatar AutoHand Backend",
     "version":  "1.0.0",
-    "description":  "Registers the AutoHand physics-based hand interaction backend for avatar IK.",
-    "relations": [
-        {
-            "id": "com.earnestrobot.autohand",
-            "type": "depends",
-            "register": "git+https://github.com/AtelierVR/nox.autohand.git"
-        }
-    ]
+    "description":  "Registers the AutoHand physics-based hand interaction backend for avatar IK."
 }
